@@ -125,8 +125,10 @@ sub get_streams($$$) {
 		#print "xxx: split_str: $split_str\n";
 		# split by first value (sort of)
 		$streams =~ s/,\s*$split_str=/\n$split_str=/g;
+		#print "xxx: streams: $streams\n";
 		my $m = 0;
 		foreach my $stream (split /\n/, $streams) {
+			#print "xxx: $m: $stream\n";
 			$streams[$m]->{'__order'} = "";
 			$stream =~ s/\?/&/;
 			# loop all key value pairs
@@ -144,6 +146,7 @@ sub get_streams($$$) {
 			++$m;
 		}
 	}
+	#print "xxx: " . (scalar @streams) . "\n";
 	@streams
 }
 
@@ -296,9 +299,8 @@ sub main(@) {
 
 	my %hash = (
 		'regexps'	=> {
-			'streams'		=> 'yt\.playerConfig\s?=',
-			'altstreams'	=> 'url_encoded_fmt_stream_map',
-			'title'			=> '<title>.*?</\s*title>'
+			'steams'	=> 'url_encoded_fmt_stream_map',
+			'title'		=> '<title>.*?</\s*title>'
 		},
 		'tempfile'	=> "",
 		'source'	=> "",
@@ -328,10 +330,8 @@ sub main(@) {
 		extract_lines($hash{'tempfile'}, %{$hash{'regexps'}}, %hash);
 		$hash{'title'} = get_title($hash{$hash{'regexps'}->{'title'}});
 		mylog("title extracted from title line is '%s'", $hash{'title'});
-		@{$hash{'streams'}} = get_streams($hash{$hash{'regexps'}->{'streams'}}, qr/":\s*"/, qr/"[,}]/);
+		@{$hash{'streams'}} = get_streams($hash{$hash{'regexps'}->{'steams'}}, '":\s*"', qr/"[,}]/);
 		if (0 == scalar @{$hash{'streams'}}) {
-			# TODO: alternate start and end required
-			@{$hash{'streams'}} = get_streams($hash{$hash{'regexps'}->{'altstreams'}}, '":\s*"', qr/"[,}]/);
 			die "No valid streams found in file, exiting!"
 		}
 		$hash{'id'} = $hash{'quiet'} ? 0 : select_stream($hash{'streams'});
