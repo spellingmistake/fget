@@ -118,17 +118,19 @@ sub get_streams($$$) {
 		# unicode and url decoding
 		$streams = unidecode($streams);
 		$streams = urldecode($streams);
-		#print "xxx: streams: $streams\n";
+		mylog("found streams: '%s...%s'", substr($streams, 0, 10),
+				substr($streams, length($streams) - 10));
 		# determination of first value
 		(my $split_str = $streams) =~ s/^(.*?)\s*=.*$/$1/;
 		$split_str = quotemeta($split_str);
-		#print "xxx: split_str: $split_str\n";
+		mylog("split string is: '%s'", $split_str);
 		# split by first value (sort of)
 		$streams =~ s/,\s*$split_str=/\n$split_str=/g;
-		#print "xxx: streams: $streams\n";
 		my $m = 0;
 		foreach my $stream (split /\n/, $streams) {
-			#print "xxx: $m: $stream\n";
+			mylog("[#%02u] processing: '%s...%s'", $m + 1,
+					substr($stream, 0, 10),
+					substr($stream, length($stream) - 10));
 			$streams[$m]->{'__order'} = "";
 			$stream =~ s/\?/&/;
 			# loop all key value pairs
@@ -143,10 +145,12 @@ sub get_streams($$$) {
 				local $/ = ",";
 				chomp $streams[$m]->{'__order'};
 			}
+			mylog("[#%02u] key order: '%s'", $m + 1,
+					$streams[$m]->{'__order'});
 			++$m;
 		}
 	}
-	#print "xxx: " . (scalar @streams) . "\n";
+	mylog("found %d streams", scalar @streams);
 	@streams
 }
 
@@ -237,10 +241,8 @@ sub x($$) {
 	$ext = "flv" if ($ext eq "xflv");
 
 	my @cmd = ("wget", "-S", "-c", "-U", $agent, "-O", "$title.$ext", "$ref->{'__url'}");
-	mylog("downloading file to '%s'\nusing command '%s':", $title.$ext, @cmd);
-	#my $stderr = "";
-	#run3($cmd, undef, undef, \$stderr);
-	#mylog("\tresponded with \n%s\n", $stderr);
+	mylog("downloading file to '%s.%s'\nusing command '%s':", $title, $ext,
+			join(" ", @cmd));
 	run3 \@cmd, undef, undef, undef;
 	return 0 == $? ? 1 : 0;
 }
