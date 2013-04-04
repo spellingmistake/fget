@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 use IPC::Run3;
+use Data::Dumper;
 use strict;
 use warnings;
 use vars qw/%entities $agent $loghandle $success $tempfile/;
@@ -22,7 +23,7 @@ use Data::Dumper;
 	'frac14'	=> '¼',		'frac12'	=> '½',			'frac34'	=> '¾',
 	'iquest'	=> '¿',		'times' 	=> '×',			'divide'	=> '÷',
 );
-$agent = exists $ENV{'AGENT'} ? $ENV{'AGENT'} : "Mozilla/5.0 (X11; Linux i686; rv:15.0) Gecko/20121212 Firefox/15.0";
+$agent = exists $ENV{'AGENT'} ? $ENV{'AGENT'} : "Mozilla/5.0 (X11; Linux i686; rv:15.0) Gecko/20121212 Firefox/21.0";
 
 # un-entityize a given html named entity
 # in:	html named entity (name/number of entity)
@@ -174,20 +175,28 @@ sub info_from_type($) {
 # function takes all streams found, displays all quality and mime type infos
 # and asks user which stream is desired
 # in:	array ref with stream information
+# in:	[optional] itag value for automated download
 # ret:	stream selected by user
-sub select_stream($) {
-	my ($stream_ref) = @_;
+sub select_stream($;$) {
+	my ($stream_ref, $itag) = @_;
+	my $selections = "";
 
 	my $i = 1;
 	foreach my $stream (@{$stream_ref}) {
-		my $info = info_from_type($stream->{'type'});
-		printf "%-3s %-7s ($info)\n", "$i:", $stream->{'quality'};
+		my $info = sprintf("itag % 2u: ", $stream->{'itag'}) . info_from_type($stream->{'type'});
+		if (defined $itag and defined $stream->{'itag'} and $itag == $stream->{'itag'}) {
+			printf("auto-selected %-3s %-7s ($info)\n", "$i:", $stream->{'quality'});
+			return $i - 1;
+		}
+		$selections .= sprintf("%-3s %-7s ($info)\n", "$i:", $stream->{'quality'});
 		++$i;
 	}
+	print $selections;
 	my $sel;
 	do {
 		print "\nWhich one? ";
 		$sel = <STDIN>;
+		exit if !defined $sel;
 		$sel = 1 if ($sel eq "\n");
 	} while ($sel >= $i or $sel < 1);
 	# - 1 is due to our one based array presentation
@@ -270,6 +279,7 @@ sub get_args($@) {
 			$ret = <STDIN>;
 			chomp $ret if (defined $ret);
 		}
+
 		return $ret;
 	};
 }
@@ -313,20 +323,30 @@ sub main(@) {
 	$loghandle = $hash{'log'};
 
 	my $stdin = 0;
-	if ($args[0] eq "-c") {
-		shift @args;
-		$stdin = 1;
+	my $itag;
+	while ($args[0] eq "-c" or $args[0] eq "-i") {
+		if ($args[0] eq "-c") {
+			$stdin = 1;
+			shift @args;
+		} else {
+			shift @args;
+			$itag = shift @args;
+		}
+		last if (0 == scalar @args);
 	}
 	my $args = get_args($stdin, @args);
 
-	while (my $var = $args->()) {
+	my $var = $args->();
+	while ($var or $var = $args->()) {
+		my @tmp = split /\s+/, $var;
+		my $v = shift @tmp;
 		init_hash(%hash);
-		if ($var =~ /^([-+])q$/) {
+		if ($v =~ /^([-+])q$/) {
 			$hash{'quiet'} = $1 eq "+" ? 0 : 1;
 			mylog("quiet mode set to '%s' (%s)", ($hash{'quiet'} ? "on" : "off"), $1);
 			next;
 		}
-		$hash{'source'} = $var;
+		$hash{'source'} = $v;
 		mylog("processing file '%s'", $hash{'source'});
 		$tempfile = $hash{'tempfile'} = download_html($hash{'source'});
 		extract_lines($hash{'tempfile'}, %{$hash{'regexps'}}, %hash);
@@ -336,9 +356,10 @@ sub main(@) {
 		if (0 == scalar @{$hash{'streams'}}) {
 			die "No valid streams found in file, exiting!"
 		}
-		$hash{'id'} = $hash{'quiet'} ? 0 : select_stream($hash{'streams'});
+		$hash{'id'} = $hash{'quiet'} ? 0 : select_stream($hash{'streams'}, $itag);
 		$hash{'streams'}->[$hash{'id'}]->{'__url'} = assemble_url($hash{'streams'}->[$hash{'id'}]);
 		$success = x($hash{'streams'}->[$hash{'id'}], $hash{'title'});
+		$var = join " ", @tmp;
 	}
 }
 
