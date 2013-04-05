@@ -341,6 +341,7 @@ sub main(@) {
 		my @tmp = split /\s+/, $var;
 		my $v = shift @tmp;
 		init_hash(%hash);
+		$var = join " ", @tmp;
 		if ($v =~ /^([-+])q$/) {
 			$hash{'quiet'} = $1 eq "+" ? 0 : 1;
 			mylog("quiet mode set to '%s' (%s)", ($hash{'quiet'} ? "on" : "off"), $1);
@@ -359,7 +360,6 @@ sub main(@) {
 		$hash{'id'} = $hash{'quiet'} ? 0 : select_stream($hash{'streams'}, $itag);
 		$hash{'streams'}->[$hash{'id'}]->{'__url'} = assemble_url($hash{'streams'}->[$hash{'id'}]);
 		$success = x($hash{'streams'}->[$hash{'id'}], $hash{'title'});
-		$var = join " ", @tmp;
 	}
 }
 
