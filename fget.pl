@@ -23,7 +23,7 @@ use Data::Dumper;
 	'frac14'	=> '¼',		'frac12'	=> '½',			'frac34'	=> '¾',
 	'iquest'	=> '¿',		'times' 	=> '×',			'divide'	=> '÷',
 );
-$agent = exists $ENV{'AGENT'} ? $ENV{'AGENT'} : "Mozilla/5.0 (X11; Linux i686; rv:15.0) Gecko/20121212 Firefox/21.0";
+$agent = exists $ENV{'AGENT'} ? $ENV{'AGENT'} : "Mozilla/5.0 (X11; Linux i686; rv:21.0) Gecko/20130407 Firefox/21.0";
 
 # un-entityize a given html named entity
 # in:	html named entity (name/number of entity)
