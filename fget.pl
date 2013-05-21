@@ -369,5 +369,5 @@ main(@ARGV);
 
 END {
 	log_spill() if (!$success);
-	#unlink($tempfile) if (defined $tempfile);
+	unlink($tempfile) if (defined $tempfile);
 }
