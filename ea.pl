@@ -94,10 +94,11 @@ sub sort_func($$) {
 #         1 playpath ref for rtmpdump
 #         2 true for http downloads
 sub choose_playpath($$$) {
+	my ($vsr_hash, $playpath, $http) = @_;
 	my @sorted;
-	foreach (sort keys %{$_[0]}) {
-		next if $_[0]->{$_}->{'versionLibelle'} =~ /frz/i;
-		push @sorted, $_[0]->{$_};
+	foreach (sort keys %{$vsr_hash}) {
+		next if $vsr_hash->{$_}->{'versionLibelle'} =~ /frz/i;
+		push @sorted, $vsr_hash->{$_};
 	}
 	my $i = 0;
 	foreach (sort(sort_func @sorted)) {
@@ -115,9 +116,9 @@ sub choose_playpath($$$) {
 	if ($sorted[$sel]->{'videoFormat'} !~ /REACH/) {
 		$prefix = "mp4:"
 	} else {
-		${$_[2]} = 1;
+		${$http} = 1;
 	}
-	${$_[1]} = "\"$prefix$sorted[$sel]->{'url'}\"";
+	${$playpath} = "\"$prefix$sorted[$sel]->{'url'}\"";
 	$sorted[$sel]->{'quality'}
 }
 
@@ -170,7 +171,7 @@ $tempfile = new_tempfile($basename);
 curl($json_url, $tempfile);
 
 select_video($tempfile, $config{'playpath'}, $config{'flv'}, $config{'http'});
-if ("" ne $config{'http'}) {
+if (defined $config{'http'}) {
 	print `curl -L -A '$agent' $config{'playpath'} -o $config{'flv'}`;
 } else {
 	delete $config{'http'};
