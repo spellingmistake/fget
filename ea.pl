@@ -8,7 +8,7 @@ use JSON qw/from_json/;
 use File::Temp qw/mktemp/;
 use Data::Dumper;
 
-use vars qw/@tempfiles/;
+use vars qw/@tempfiles $agent/;
 
 sub make_rtmp_command(\%) {
 	my $cmd = "";
@@ -73,16 +73,34 @@ sub display_video_entry($$) {
 		" ($_[0]->{'versionLibelle'})\n", $_[1];
 }
 
+sub sort_helper($){
+	$_[0]->{'width'} * $_[0]->{'height'} * $_[0]->{'bitrate'};
+}
+
+sub sort_func($$) {
+	if ($_[0]->{'videoFormat'} =~ /REACH/) {
+		return -1;
+	} elsif ($_[1]->{'videoFormat'} =~ /REACH/) {
+		return 1;
+	}
+	if ($_[0]->{'versionLibelle'} =~ /UT/ and $_[1]->{'versionLibelle'} =~ /UT/ or
+		$_[0]->{'versionLibelle'} !~ /UT/ and $_[1]->{'versionLibelle'} !~ /UT/) {
+		return sort_helper($_[0]) <=> sort_helper($_[1]);
+	}
+	return $_[0]->{'versionLibelle'} =~ /UT/ ? -1 : 1;
+}
+
 # params: 0 parse VSR json hash ref (for video stream selection)
 #         1 playpath ref for rtmpdump
-sub choose_playpath($$) {
+#         2 true for http downloads
+sub choose_playpath($$$) {
 	my @sorted;
 	foreach (sort keys %{$_[0]}) {
-		next if $_[0]->{$_}->{'versionLibelle'} =~ /frz/i or $_ =~ /REACH/;
+		next if $_[0]->{$_}->{'versionLibelle'} =~ /frz/i;
 		push @sorted, $_[0]->{$_};
 	}
 	my $i = 0;
-	foreach (@sorted) {
+	foreach (sort(sort_func @sorted)) {
 		print display_video_entry($_, $i);
 	}
 	my $sel;
@@ -90,16 +108,24 @@ sub choose_playpath($$) {
 		print "\nWhich one? ";
 		$sel = <STDIN>;
 		exit if !defined $sel;
-		$sel = scalar @sorted - 1 if ($sel eq "\n");
-	} while ($sel >= $i or $sel < 1);
-	${$_[1]} = "\"mp4:$sorted[$sel]->{'url'}\"";
+		$sel = scalar @sorted if ($sel eq "\n");
+	} while ($sel > $i or $sel < 1);
+	--$sel;
+	my $prefix = "";
+	if ($sorted[$sel]->{'videoFormat'} !~ /REACH/) {
+		$prefix = "mp4:"
+	} else {
+		${$_[2]} = 1;
+	}
+	${$_[1]} = "\"$prefix$sorted[$sel]->{'url'}\"";
 	$sorted[$sel]->{'quality'}
 }
 
 # params: 0 json file to parse
 #         1 playpath ref for rtmpdump
 #         2 flv (title) ref for video output
-sub select_video($\$\$) {
+#         3 http true if http download is required
+sub select_video($\$\$\$) {
 	my $json;
 	{
 		my $in;
@@ -108,9 +134,7 @@ sub select_video($\$\$) {
 		$json = from_json(<$in>)->{'videoJsonPlayer'};
 		close $in;
 	}
-	#print Dumper($json);
-	#exit (0);
-	my $quality = choose_playpath($json->{'VSR'}, $_[1]);
+	my $quality = choose_playpath($json->{'VSR'}, $_[1], $_[3]);
 	${$_[2]} = sanitize_name($json->{'VTI'}, $json->{'VPI'}, $quality);
 }
 
@@ -137,6 +161,7 @@ $config{'rtmp'} = "rtmp://artestras.fcod.llnwd.net/$config{'app'}";
 $config{'tcUrl'} = "$config{'rtmp'}";
 $config{'swfVfy'} = "$config{'swfUrl'}";
 
+$agent = "Mozilla/5.0 (X11; Linux i686; rv:21.0) Gecko/20130807 Firefox/23.0";
 (my $basename = $0) =~ s|^.*/||;
 my $tempfile = new_tempfile($basename);
 curl($ARGV[0], $tempfile);
@@ -144,6 +169,11 @@ my $json_url = extract_json_url($tempfile);
 $tempfile = new_tempfile($basename);
 curl($json_url, $tempfile);
 
-select_video($tempfile, $config{'playpath'}, $config{'flv'});
-my $cmd = make_rtmp_command(%config);
-`$cmd`
+select_video($tempfile, $config{'playpath'}, $config{'flv'}, $config{'http'});
+if ("" ne $config{'http'}) {
+	print `curl -L -A '$agent' $config{'playpath'} -o $config{'flv'}`;
+} else {
+	delete $config{'http'};
+	my $cmd = make_rtmp_command(%config);
+	`$cmd`
+}
