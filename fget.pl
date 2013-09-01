@@ -172,32 +172,49 @@ sub info_from_type($) {
 # function takes all streams found, displays all quality and mime type infos
 # and asks user which stream is desired
 # in:	array ref with stream information
-# in:	[optional] itag value for automated download
+# in:	[optional] preferred itag values for automated download
 # ret:	stream selected by user
 sub select_stream($;$) {
-	my ($stream_ref, $itag) = @_;
-	my $selections = "";
+	my ($stream_ref, $itags) = @_;
+	my $info;
 
-	my $i = 1;
-	foreach my $stream (@{$stream_ref}) {
-		my $info = sprintf("itag % 2u: ", $stream->{'itag'}) . info_from_type($stream->{'type'});
-		if (defined $itag and defined $stream->{'itag'} and $itag == $stream->{'itag'}) {
-			printf("auto-selected %-3s %-7s ($info)\n", "$i:", $stream->{'quality'});
-			return $i - 1;
+	if (defined $itags) {
+		my ($i, %streams);
+		$i = 0;
+		foreach my $stream (@{$stream_ref}) {
+			$streams{$stream->{'itag'}} = $i++;
 		}
-		$selections .= sprintf("%-3s %-7s ($info)\n", "$i:", $stream->{'quality'});
-		++$i;
+		foreach my $itag (@{$itags}) {
+			if (exists $streams{$itag}) {
+				$i = $streams{$itag};
+				$info = sprintf("itag % 2u: ", $stream_ref->[$i]->{'itag'}) .
+					info_from_type($stream_ref->[$i]->{'type'});
+				printf("auto-selected stream %-3s %-7s ($info)\n",
+						"${\($i+1)}:", $stream_ref->[$i]->{'quality'});
+				mylog("auto-selected stream %-3s %-7s ($info)\n",
+						"${\($i+1)}:", $stream_ref->[$i]->{'quality'});
+				return $i;
+			}
+		}
+	} else {
+		my $selections = "";
+		my $i = 1;
+		foreach my $stream (@{$stream_ref}) {
+			$info = sprintf("itag % 2u: ", $stream->{'itag'}) . info_from_type($stream->{'type'});
+			$selections .= sprintf("%-3s %-7s ($info)\n", "$i:", $stream->{'quality'});
+			++$i;
+		}
+		print $selections;
+		my $sel;
+		do {
+			print "\nWhich one? ";
+			$sel = <STDIN>;
+			exit if !defined $sel;
+			$sel = 1 if ($sel eq "\n");
+		} while ($sel >= $i or $sel < 1);
+		# - 1 is due to our one based array presentation
+		$sel - 1
 	}
-	print $selections;
-	my $sel;
-	do {
-		print "\nWhich one? ";
-		$sel = <STDIN>;
-		exit if !defined $sel;
-		$sel = 1 if ($sel eq "\n");
-	} while ($sel >= $i or $sel < 1);
-	# - 1 is due to our one based array presentation
-	$sel - 1
 }
 
 # assemble a wget-compatible url from a selected stream; all values found
@@ -267,6 +284,7 @@ sub init_hash($$) {
 		},
 		'log'		=> $log,
 		'quiet'		=> 0,
+		'preferred'	=> [ 44, 45, 84, 46, 37, 38, 85, 43, 82, 83, 22, 35, 18, 34, 6, 5, 13, 36, 17, 137, 136, 135, 134, 133, 160, 141, 140, 139, 102, 101, 100, 85, 84, 83, 82 ],
 	);
 }
 
@@ -330,13 +348,16 @@ sub main(@) {
 
 	my $stdin = 0;
 	my $itag;
-	while ($args[0] eq "-c" or $args[0] eq "-i") {
-		if ($args[0] eq "-c") {
+	while ($args[0] =~ /-[pic]/) {
+		if ($args[0] eq "-p") {
+			shift @args;
+			$itag = $hash{'preferred'}
+		} elsif ($args[0] eq "-i") {
+			shift @args;
+			push @{$itag}, shift @args or die "-i used without an argument";
+		} elsif ($args[0] eq "-c") {
 			$stdin = 1;
 			shift @args;
-		} else {
-			shift @args;
-			$itag = shift @args;
 		}
 		last if (0 == scalar @args);
 	}
