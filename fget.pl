@@ -230,7 +230,7 @@ sub download_html($$) {
 	chomp (my $tempfile = `mktemp`);
 	mylog("downloading '%s' to '%s':", $source, $tempfile);
 
-	my $cmd = "$downloader --no-check-certificate -S -U '$agent' -O '$tempfile' '$source'";
+	my $cmd = "$downloader --no-cookies --no-check-certificate -S -U '$agent' -O '$tempfile' '$source'";
 	mylog("	'%s'", $cmd);
 	my $stderr = "";
 	run3($cmd, \undef, \undef, \$stderr);
@@ -249,7 +249,7 @@ sub x($$$) {
 	$ext =~ s/\W//g;
 	$ext = "flv" if ($ext eq "xflv");
 
-	my @cmd = ("$downloader", "-S", "-c", "-U", $agent, "-O", "$title.$ext", "$ref->{'__url'}");
+	my @cmd = ("$downloader", "--no-cookies", "-S", "-c", "-U", $agent, "-O", "$title.$ext", "$ref->{'__url'}");
 	mylog("downloading file to '%s.%s'\nusing command '%s':", $title, $ext,
 			join(" ", @cmd));
 	run3(\@cmd, undef, undef, undef);
