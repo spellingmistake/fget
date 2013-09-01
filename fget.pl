@@ -20,7 +20,7 @@ use vars qw/%entities $agent $loghandle $success $tempfile/;
 	'frac14'	=> '¼',		'frac12'	=> '½',			'frac34'	=> '¾',
 	'iquest'	=> '¿',		'times' 	=> '×',			'divide'	=> '÷',
 );
-$agent = exists $ENV{'AGENT'} ? $ENV{'AGENT'} : "Mozilla/5.0 (X11; Linux i686; rv:21.0) Gecko/20130407 Firefox/21.0";
+$agent = exists $ENV{'AGENT'} ? $ENV{'AGENT'} : "Mozilla/5.0 (X11; Linux i686; rv:23.0) Gecko/20100101 Firefox/23.0";
 
 # un-entityize a given html named entity
 # in:	html named entity (name/number of entity)
