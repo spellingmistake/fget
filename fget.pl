@@ -257,14 +257,17 @@ sub x($$$) {
 }
 
 # initialize working hash (i.e. empty it out except for regexps and quiet)
-# NOTE: inefficient code!
-sub init_hash(\%) {
-	my ($hash_ref) = @_;
-
-	foreach my $key (keys %{$hash_ref}) {
-		next if ($key =~ /^(downloader|regexps|quiet|log)$/);
-		delete $hash_ref->{$key};
-	}
+sub init_hash($$) {
+	my ($downloader, $log) = @_;
+	(
+		'downloader'=> $downloader,
+		'regexps'	=> {
+			'steams'	=> 'url_encoded_fmt_stream_map',
+			'title'		=> '<title>.*?</\s*title>'
+		},
+		'log'		=> $log,
+		'quiet'		=> 0,
+	);
 }
 
 sub get_args($@) {
@@ -314,24 +317,15 @@ sub log_spill() {
 }
 
 sub main(@) {
+	my $downloader = "wget";
 	my @args = @_;
 
 	$success = 0;
 	help() if (0 == scalar @args);
 
-	my %hash = (
-		'downloader'=> 'wget',
-		'regexps'	=> {
-			'steams'	=> 'url_encoded_fmt_stream_map',
-			'title'		=> '<title>.*?</\s*title>'
-		},
-		'tempfile'	=> "",
-		'source'	=> "",
-		'log'		=> [],
-		'quiet'		=> 0,
-	);
-	verify_downloader($hash{'downloader'}) or die
-		"http downloader $hash{'downloader'} missing: $!\n";
+	verify_downloader($downloader) or die
+		"http downloader $downloader missing: $!\n";
+	my %hash = init_hash($downloader, undef);
 	$loghandle = $hash{'log'};
 
 	my $stdin = 0;
@@ -352,7 +346,7 @@ sub main(@) {
 	while ($var or $var = $args->()) {
 		my @tmp = split /\s+/, $var;
 		my $v = shift @tmp;
-		init_hash(%hash);
+		%hash = init_hash($downloader, $loghandle);
 		$var = join " ", @tmp;
 		if ($v =~ /^([-+])q$/) {
 			$hash{'quiet'} = $1 eq "+" ? 0 : 1;
@@ -372,6 +366,7 @@ sub main(@) {
 		$hash{'id'} = $hash{'quiet'} ? 0 : select_stream($hash{'streams'}, $itag);
 		$hash{'streams'}->[$hash{'id'}]->{'__url'} = assemble_url($hash{'streams'}->[$hash{'id'}]);
 		$success = x($hash{'streams'}->[$hash{'id'}], $hash{'title'}, $hash{'downloader'});
+		unlink($hash{'tempfile'}) if (defined $hash{'tempfile'});
 	}
 }
 
