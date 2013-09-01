@@ -285,7 +285,9 @@ sub get_args($@) {
 # in:	optional exit code of the function, if exit value is supposed to
 # 		to be <> 0
 sub help(;$) {
-	print "usage: get_flash_vid [-q|+q] <URL> [[-q|+q] <URL> ...]\n";
+	print "usage: fget COMMAND\n";
+	print "            COMMAND := {SWITCH | url}\n";
+	print "            SWITCH  := [ -q | +q ] # disable/enable quiet mode\n";
 	exit(defined $_[0] ? $_[0] : 0);
 }
 
