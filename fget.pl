@@ -223,33 +223,36 @@ sub assemble_url($) {
 
 # download the 'source' html file from hash_ref to 'tempfile'
 # in:	source url of the file to be downloaded
+#		http downloading binary
 # ret:	name of the temporarily created download file
-sub download_html($) {
-	my ($source) = @_;
+sub download_html($$) {
+	my ($source, $downloader) = @_;
 	chomp (my $tempfile = `mktemp`);
 	mylog("downloading '%s' to '%s':", $source, $tempfile);
 
-	my $cmd = "wget --no-check-certificate -S -U '$agent' -O '$tempfile' '$source'";
+	my $cmd = "$downloader --no-check-certificate -S -U '$agent' -O '$tempfile' '$source'";
 	mylog("	'%s'", $cmd);
 	my $stderr = "";
 	run3($cmd, \undef, \undef, \$stderr);
 	mylog("\tresponded with \n%s\n", $stderr);
-	die ("invalid exit code of wget ($cmd): " . ($? & 127)) if ($? != 0);
+	die ("invalid exit code of $downloader ($cmd): " . ($? & 127)) if ($? != 0);
 	$tempfile
 }
 
 # perform download of the stream referenced by the hash ref with the given title
 # in:	hash reference of the selected source stream
-sub x($$) {
-	my ($ref, $title) = @_;
+#		title of the file
+#		http downloading binary
+sub x($$$) {
+	my ($ref, $title, $downloader) = @_;
 	my ($ext, undef, undef) = info_from_type($ref->{'type'});
 	$ext =~ s/\W//g;
 	$ext = "flv" if ($ext eq "xflv");
 
-	my @cmd = ("wget", "-S", "-c", "-U", $agent, "-O", "$title.$ext", "$ref->{'__url'}");
+	my @cmd = ("$downloader", "-S", "-c", "-U", $agent, "-O", "$title.$ext", "$ref->{'__url'}");
 	mylog("downloading file to '%s.%s'\nusing command '%s':", $title, $ext,
 			join(" ", @cmd));
-	run3 \@cmd, undef, undef, undef;
+	run3(\@cmd, undef, undef, undef);
 	return 0 == $? ? 1 : 0;
 }
 
@@ -259,7 +262,7 @@ sub init_hash(\%) {
 	my ($hash_ref) = @_;
 
 	foreach my $key (keys %{$hash_ref}) {
-		next if ($key =~ /^(regexps|quiet|log)$/);
+		next if ($key =~ /^(downloader|regexps|quiet|log)$/);
 		delete $hash_ref->{$key};
 	}
 }
@@ -297,9 +300,17 @@ sub mylog(@) {
 	push @{$loghandle}, sprintf(shift, @_);
 }
 
+# verify the availability of the http downloader (currently wget)
+# in:	downloader command
+# out:	boolean representing existence of the http downloader
+sub verify_downloader($) {
+	run3("$_[0] -h", \undef, \undef, undef, { 'return_if_system_error' => 1 });
+	return -1 != $?
+}
+
 sub log_spill() {
 	local $" = "\n";
-	print "@{$loghandle}\n";
+	print "@{$loghandle}\n" if defined $loghandle;
 }
 
 sub main(@) {
@@ -309,6 +320,7 @@ sub main(@) {
 	help() if (0 == scalar @args);
 
 	my %hash = (
+		'downloader'=> 'wget',
 		'regexps'	=> {
 			'steams'	=> 'url_encoded_fmt_stream_map',
 			'title'		=> '<title>.*?</\s*title>'
@@ -318,7 +330,8 @@ sub main(@) {
 		'log'		=> [],
 		'quiet'		=> 0,
 	);
-
+	verify_downloader($hash{'downloader'}) or die
+		"http downloader $hash{'downloader'} missing: $!\n";
 	$loghandle = $hash{'log'};
 
 	my $stdin = 0;
@@ -348,7 +361,7 @@ sub main(@) {
 		}
 		$hash{'source'} = $v;
 		mylog("processing file '%s'", $hash{'source'});
-		$tempfile = $hash{'tempfile'} = download_html($hash{'source'});
+		$tempfile = $hash{'tempfile'} = download_html($hash{'source'}, $hash{'downloader'});
 		extract_lines($hash{'tempfile'}, %{$hash{'regexps'}}, %hash);
 		$hash{'title'} = get_title($hash{$hash{'regexps'}->{'title'}});
 		mylog("title extracted from title line is '%s'", $hash{'title'});
@@ -358,7 +371,7 @@ sub main(@) {
 		}
 		$hash{'id'} = $hash{'quiet'} ? 0 : select_stream($hash{'streams'}, $itag);
 		$hash{'streams'}->[$hash{'id'}]->{'__url'} = assemble_url($hash{'streams'}->[$hash{'id'}]);
-		$success = x($hash{'streams'}->[$hash{'id'}], $hash{'title'});
+		$success = x($hash{'streams'}->[$hash{'id'}], $hash{'title'}, $hash{'downloader'});
 	}
 }
 
