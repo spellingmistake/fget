@@ -1,12 +1,9 @@
 #!/usr/bin/perl
 
 use IPC::Run3;
-use Data::Dumper;
 use strict;
 use warnings;
 use vars qw/%entities $agent $loghandle $success $tempfile/;
-
-use Data::Dumper;
 
 %entities = (
 	'quot'		=> '"',		'apos'		=> '\'',		'amp'		=> '&',
@@ -363,10 +360,7 @@ sub main(@) {
 	}
 }
 
-#Referer: http://s.ytimg.com/yts/swfbin/watch_as3_hh-vfleHfpd4.swf
-#"url": "http:\/\/s.ytimg.com\/yts\/swfbin\/watch_as3_hh-vfleHfpd4.swf"
 main(@ARGV);
-
 END {
 	log_spill() if (!$success);
 	unlink($tempfile) if (defined $tempfile);
