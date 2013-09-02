@@ -3,7 +3,7 @@
 use IPC::Run3;
 use strict;
 use warnings;
-use vars qw/%entities $agent $loghandle $success $tempfile/;
+use vars qw/%entities $loghandle $success $tempfile/;
 
 %entities = (
 	'quot'		=> '"',		'apos'		=> '\'',		'amp'		=> '&',
@@ -20,7 +20,6 @@ use vars qw/%entities $agent $loghandle $success $tempfile/;
 	'frac14'	=> '¼',		'frac12'	=> '½',			'frac34'	=> '¾',
 	'iquest'	=> '¿',		'times' 	=> '×',			'divide'	=> '÷',
 );
-$agent = exists $ENV{'AGENT'} ? $ENV{'AGENT'} : "Mozilla/5.0 (X11; Linux i686; rv:23.0) Gecko/20100101 Firefox/23.0";
 
 # un-entityize a given html named entity
 # in:	html named entity (name/number of entity)
@@ -238,46 +237,43 @@ sub assemble_url($) {
 	$url
 }
 
-# download the 'source' html file from hash_ref to 'tempfile'
-# in:	source url of the file to be downloaded
-#		http downloading binary
-# ret:	name of the temporarily created download file
+# download the source html file from downloader to outfile
+# in:	http downloading object
+#		scalar ref to outfile
 sub download_html($$) {
-	my ($source, $downloader) = @_;
-	chomp (my $tempfile = `mktemp`);
-	mylog("downloading '%s' to '%s':", $source, $tempfile);
+	my ($downloader, $outfile) = @_;
+	chomp (${$outfile} = `mktemp`);
 
-	my $cmd = "$downloader --no-cookies --no-check-certificate -S -U '$agent' -O '$tempfile' '$source'";
+	my $cmd = $downloader->();
 	mylog("	'%s'", $cmd);
 	my $stderr = "";
-	run3($cmd, \undef, \undef, \$stderr);
+	# for curl, response header are written to stdout :/
+	run3($cmd, \undef, \$stderr, \$stderr);
 	mylog("\tresponded with \n%s\n", $stderr);
 	die ("invalid exit code of $downloader ($cmd): " . ($? & 127)) if ($? != 0);
-	$tempfile
 }
 
-# perform download of the stream referenced by the hash ref with the given title
-# in:	hash reference of the selected source stream
-#		title of the file
-#		http downloading binary
-sub x($$$) {
-	my ($ref, $title, $downloader) = @_;
+# perform download of the stream referenced by the hash ref using the downloader
+# in:	http downloading object
+#		hash reference of the selected source stream
+#		scalar ref to outfile
+sub download_video($$$) {
+	my ($downloader, $ref, $outfile) = @_;
 	my ($ext, undef, undef) = info_from_type($ref->{'type'});
 	$ext =~ s/\W//g;
 	$ext = "flv" if ($ext eq "xflv");
 
-	my @cmd = ("$downloader", "--no-cookies", "-S", "-c", "-U", $agent, "-O", "$title.$ext", "$ref->{'__url'}");
-	mylog("downloading file to '%s.%s'\nusing command '%s':", $title, $ext,
-			join(" ", @cmd));
-	run3(\@cmd, undef, undef, undef);
+	${$outfile} .= $ext;
+	my $cmd = $downloader->();
+	mylog("downloading file to '%s'\nusing command '%s':", ${$outfile}, $cmd);
+	run3($cmd, undef, undef, undef);
 	return 0 == $? ? 1 : 0;
 }
 
 # initialize working hash (i.e. empty it out except for regexps and quiet)
-sub init_hash($$) {
-	my ($downloader, $log) = @_;
+sub init_hash($) {
+	my ($log) = @_;
 	(
-		'downloader'=> $downloader,
 		'regexps'	=> {
 			'steams'	=> 'url_encoded_fmt_stream_map',
 			'title'		=> '<title>.*?</\s*title>'
@@ -334,16 +330,52 @@ sub log_spill() {
 	print "@{$loghandle}\n" if defined $loghandle;
 }
 
+sub downloader($) {
+	my ($downloader) = @_;
+	verify_downloader($downloader->{'binary'}) or die
+		"http downloader $downloader->{'binary'} missing: $!\n";
+	return sub {
+		my $binary = $downloader->{'binary'};
+		if ("curl" eq $binary) {
+			my $extra = " ";
+			$extra .= "-C - " if ("download_video" eq ${$downloader->{'operation'}});
+			# --no-check-certificate <-> --insecure?
+			"$binary --cookie-jar /dev/null -L -D -$extra" .
+				"-A '$downloader->{'agent'}' " .
+				"-o '${$downloader->{'outfile'}}' " .
+				"'${$downloader->{'source'}}'";
+		} elsif ("wget" eq $binary) {
+			my $extra = " ";
+			$extra .= "-c " if ("download_video" eq ${$downloader->{'operation'}});
+			"$binary --no-cookies --no-check-certificate -S$extra" .
+				"-U '$downloader->{'agent'}' " .
+				"-O '${$downloader->{'outfile'}}' " .
+				"'${$downloader->{'source'}}'";
+		}
+	}
+}
+
+sub f($) {
+	print ref $_[0];
+}
+
 sub main(@) {
-	my $downloader = "wget";
 	my @args = @_;
+	my $agent = exists $ENV{'AGENT'} ? $ENV{'AGENT'} : "Mozilla/5.0 (X11; Linux i686; rv:23.0) Gecko/20100101 Firefox/23.0";
+	my ($operation, $outfile, $source);
+	$tempfile = \$outfile;
+	my $downloader = downloader({
+		"binary"    => "curl",
+		"agent"     => $agent,
+		"operation" => \$operation,
+		"outfile"   => \$outfile,
+		"source"    => \$source,
+	});
 
 	$success = 0;
 	help() if (0 == scalar @args);
 
-	verify_downloader($downloader) or die
-		"http downloader $downloader missing: $!\n";
-	my %hash = init_hash($downloader, undef);
+	my %hash = init_hash(undef);
 	$loghandle = $hash{'log'};
 
 	my $stdin = 0;
@@ -367,17 +399,18 @@ sub main(@) {
 	while ($var or $var = $args->()) {
 		my @tmp = split /\s+/, $var;
 		my $v = shift @tmp;
-		%hash = init_hash($downloader, $loghandle);
+		%hash = init_hash($loghandle);
 		$var = join " ", @tmp;
 		if ($v =~ /^([-+])q$/) {
 			$hash{'quiet'} = $1 eq "+" ? 0 : 1;
 			mylog("quiet mode set to '%s' (%s)", ($hash{'quiet'} ? "on" : "off"), $1);
 			next;
 		}
-		$hash{'source'} = $v;
-		mylog("processing file '%s'", $hash{'source'});
-		$tempfile = $hash{'tempfile'} = download_html($hash{'source'}, $hash{'downloader'});
-		extract_lines($hash{'tempfile'}, %{$hash{'regexps'}}, %hash);
+		$source = $v;
+		mylog("processing file '%s'", $source);
+		$operation = "download_html";
+		download_html($downloader, \$outfile);
+		extract_lines($outfile, %{$hash{'regexps'}}, %hash);
 		$hash{'title'} = get_title($hash{$hash{'regexps'}->{'title'}});
 		mylog("title extracted from title line is '%s'", $hash{'title'});
 		@{$hash{'streams'}} = get_streams($hash{$hash{'regexps'}->{'steams'}}, '":\s*"', qr/"[,}]/);
@@ -386,13 +419,17 @@ sub main(@) {
 		}
 		$hash{'id'} = $hash{'quiet'} ? 0 : select_stream($hash{'streams'}, $itag);
 		$hash{'streams'}->[$hash{'id'}]->{'__url'} = assemble_url($hash{'streams'}->[$hash{'id'}]);
-		$success = x($hash{'streams'}->[$hash{'id'}], $hash{'title'}, $hash{'downloader'});
-		unlink($hash{'tempfile'}) if (defined $hash{'tempfile'});
+		$operation = "download_video";
+		$outfile = $hash{'title'};
+		$source = $hash{'streams'}->[$hash{'id'}]->{'__url'};
+		$success = download_video($downloader, $hash{'streams'}->[$hash{'id'}], \$outfile);
+		unlink(${$tempfile}) if (defined ${$tempfile});
+		$operation = $outfile = $source = undef;
 	}
 }
 
 main(@ARGV);
 END {
 	log_spill() if (!$success);
-	unlink($tempfile) if (defined $tempfile);
+	unlink(${$tempfile}) if (defined ${$tempfile});
 }
