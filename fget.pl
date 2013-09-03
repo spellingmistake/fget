@@ -263,7 +263,7 @@ sub download_video($$$) {
 	$ext =~ s/\W//g;
 	$ext = "flv" if ($ext eq "xflv");
 
-	${$outfile} .= $ext;
+	${$outfile} .= ".$ext";
 	my $cmd = $downloader->();
 	mylog("downloading file to '%s'\nusing command '%s':", ${$outfile}, $cmd);
 	run3($cmd, undef, undef, undef);
@@ -399,6 +399,7 @@ sub main(@) {
 	while ($var or $var = $args->()) {
 		my @tmp = split /\s+/, $var;
 		my $v = shift @tmp;
+		$tempfile = \$outfile;
 		%hash = init_hash($loghandle);
 		$var = join " ", @tmp;
 		if ($v =~ /^([-+])q$/) {
@@ -419,11 +420,12 @@ sub main(@) {
 		}
 		$hash{'id'} = $hash{'quiet'} ? 0 : select_stream($hash{'streams'}, $itag);
 		$hash{'streams'}->[$hash{'id'}]->{'__url'} = assemble_url($hash{'streams'}->[$hash{'id'}]);
+		unlink(${$tempfile}) if (defined ${$tempfile});
+		$tempfile = undef;
 		$operation = "download_video";
 		$outfile = $hash{'title'};
 		$source = $hash{'streams'}->[$hash{'id'}]->{'__url'};
 		$success = download_video($downloader, $hash{'streams'}->[$hash{'id'}], \$outfile);
-		unlink(${$tempfile}) if (defined ${$tempfile});
 		$operation = $outfile = $source = undef;
 	}
 }
