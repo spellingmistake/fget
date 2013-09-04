@@ -242,7 +242,7 @@ sub assemble_url($) {
 #		scalar ref to outfile
 sub download_html($$) {
 	my ($downloader, $outfile) = @_;
-	chomp (${$outfile} = `mktemp`);
+	chomp (${$outfile} = `mktemp -t tmp.fget.XXXXXXXX`);
 
 	my $cmd = $downloader->();
 	mylog("	'%s'", $cmd);
