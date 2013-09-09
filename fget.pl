@@ -265,8 +265,11 @@ sub download_video($$$) {
 
 	${$outfile} .= ".$ext";
 	my $cmd = $downloader->();
+	printf("downloading file to '%s'\n", ${$outfile});
 	mylog("downloading file to '%s'\nusing command '%s':", ${$outfile}, $cmd);
-	run3($cmd, undef, undef, undef);
+	my $stdout = "";
+	run3($cmd, \undef, \$stdout, undef);
+	mylog("\tresponded with \n%s\n", $stdout);
 	return 0 == $? ? 1 : 0;
 }
 
