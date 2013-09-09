@@ -60,8 +60,9 @@ sub sanitize_name {
 		$name .= "" eq $name ? $_ : "_$_";
 	}
 	utf8::downgrade($name);
-	$name =~ y/- |\/\\/_/;
-	$name =~ s/_+/_/g;
+	$name =~ s/([\$()\[\]{}<>`'"-\/])/\\$1/g;
+	$name =~ s|[ /]+|_|g;
+	$name =~ s/_$//;
 	"$name.mp4";
 }
 
