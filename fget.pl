@@ -91,9 +91,10 @@ sub get_title($) {
 		$str =~ s|.*?<title>(.*?)</title>.*|$1|;	# title tag's value extraction
 		$str =~ s/ - youtube$//i;					# snip off youtube at the end of title
 		$str =~ s|&(.*?);|unent($1)|eg;				# replace/wipe all named entities
-		$str =~ tr| /()-|_|;						# transliterate all 'ugly' char to '_'
-		$str =~ s|_+|_|g;							# replace multiple '_'-occurences
-		$str =~ s|_$||;								# replace traling '_' character
+		$str =~ s/(["\\\$`])/\\$1/g;				# quote all characters interpreted in double quotes
+		$str =~ s|/|_|g;							# quote all slash characters
+		$str =~ s/[_ ]+/_/g;						# replace all spaces/underscores by one underscore
+		$str =~ s/_$//;								# replace traling '_' character
 
 		# if we have a decent length drop all other titles
 		return $str if (length($str) > 0);
@@ -344,16 +345,16 @@ sub downloader($) {
 			$extra .= "-C - " if ("download_video" eq ${$downloader->{'operation'}});
 			# --no-check-certificate <-> --insecure?
 			"$binary --cookie-jar /dev/null -L -D -$extra" .
-				"-A '$downloader->{'agent'}' " .
-				"-o '${$downloader->{'outfile'}}' " .
-				"'${$downloader->{'source'}}'";
+				"-A \"$downloader->{'agent'}\" " .
+				"-o \"${$downloader->{'outfile'}}\" " .
+				"\"${$downloader->{'source'}}\"";
 		} elsif ("wget" eq $binary) {
 			my $extra = " ";
 			$extra .= "-c " if ("download_video" eq ${$downloader->{'operation'}});
 			"$binary --no-cookies --no-check-certificate -S$extra" .
-				"-U '$downloader->{'agent'}' " .
-				"-O '${$downloader->{'outfile'}}' " .
-				"'${$downloader->{'source'}}'";
+				"-U \"$downloader->{'agent'}\" " .
+				"-O \"${$downloader->{'outfile'}}\" " .
+				"\"${$downloader->{'source'}}\"";
 		}
 	}
 }
