@@ -149,7 +149,7 @@ sub new_tempfile($) {
 
 sub usage($) {
 
-	print "usage: $_[0] <url>\n";
+	print "usage: $_[0] [-q] <url>\n";
 	exit();
 }
 
@@ -161,6 +161,15 @@ END {
 
 (my $basename = $0) =~ s|^.*/||;
 usage($basename) if (0 == scalar @ARGV);
+
+my $dry = 0;
+for my $i (0 .. scalar @ARGV - 1) {
+	if ($ARGV[$i] =~ /-d/) {
+		splice @ARGV, $i, 1;
+		$dry = 1;
+		last;
+	}
+}
 
 my %config = (
 	'resume'   => '',
@@ -186,5 +195,9 @@ if (defined $config{'http'}) {
 } else {
 	delete $config{'http'};
 	my $cmd = make_rtmp_command(%config);
-	`$cmd`
+	if ($dry) {
+		print $cmd
+	} else {
+		`$cmd`
+	}
 }
