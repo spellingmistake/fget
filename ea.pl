@@ -164,7 +164,7 @@ usage($basename) if (0 == scalar @ARGV);
 
 my $dry = 0;
 for my $i (0 .. scalar @ARGV - 1) {
-	if ($ARGV[$i] =~ /-d/) {
+	if ($ARGV[$i] =~ /^-d/) {
 		splice @ARGV, $i, 1;
 		$dry = 1;
 		last;
