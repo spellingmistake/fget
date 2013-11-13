@@ -365,7 +365,7 @@ sub f($) {
 
 sub main(@) {
 	my @args = @_;
-	my $agent = exists $ENV{'AGENT'} ? $ENV{'AGENT'} : "Mozilla/5.0 (X11; Linux i686; rv:23.0) Gecko/20100101 Firefox/23.0";
+	my $agent = exists $ENV{'AGENT'} ? $ENV{'AGENT'} : "User-Agent: Mozilla/5.0 (X11; Linux i686; rv:25.0) Gecko/20100101 Firefox/25.0";
 	my ($operation, $outfile, $source);
 	$tempfile = \$outfile;
 	my $downloader = downloader({
