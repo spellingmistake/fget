@@ -147,11 +147,20 @@ sub new_tempfile($) {
 	$tempfiles[scalar @tempfiles - 1];
 }
 
+sub usage($) {
+
+	print "usage: $_[0] <url>\n";
+	exit();
+}
+
 END {
 	foreach my $tempfile (@tempfiles) {
 		unlink($tempfile);
 	}
 }
+
+(my $basename = $0) =~ s|^.*/||;
+usage($basename) if (0 == scalar @ARGV);
 
 my %config = (
 	'resume'   => '',
@@ -165,7 +174,6 @@ $config{'tcUrl'} = "$config{'rtmp'}";
 $config{'swfVfy'} = "$config{'swfUrl'}";
 
 $agent = "Mozilla/5.0 (X11; Linux i686; rv:21.0) Gecko/20130807 Firefox/23.0";
-(my $basename = $0) =~ s|^.*/||;
 my $tempfile = new_tempfile($basename);
 curl($ARGV[0], $tempfile);
 my $json_url = extract_json_url($tempfile);
