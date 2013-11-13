@@ -101,8 +101,9 @@ sub choose_playpath($$$) {
 		next if $vsr_hash->{$_}->{'versionLibelle'} =~ /frz/i;
 		push @sorted, $vsr_hash->{$_};
 	}
+	@sorted = sort(sort_func @sorted);
 	my $i = 0;
-	foreach (sort(sort_func @sorted)) {
+	foreach (@sorted) {
 		print display_video_entry($_, $i);
 	}
 	my $sel;
