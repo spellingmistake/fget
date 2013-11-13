@@ -4,6 +4,7 @@ use IPC::Run3;
 use strict;
 use warnings;
 use vars qw/%entities $loghandle $success $tempfile/;
+use JSON qw/from_json/;
 
 %entities = (
 	'quot'		=> '"',		'apos'		=> '\'',		'amp'		=> '&',
@@ -112,40 +113,44 @@ sub get_streams($$$) {
 
 	foreach my $streams (@{$stream_ref}) {
 		# extract value from line
-		$streams =~ s|^.*url_encoded_fmt_stream_map$start(.*?)$end.*$|$1|;
-		# unicode and url decoding
-		$streams = unidecode($streams);
-		$streams = urldecode($streams);
-		mylog("found streams: '%s...%s'", substr($streams, 0, 10),
-				substr($streams, length($streams) - 10));
-		# determination of first value
-		(my $split_str = $streams) =~ s/^(.*?)\s*=.*$/$1/;
-		$split_str = quotemeta($split_str);
-		mylog("split string is: '%s'", $split_str);
-		# split by first value (sort of)
-		$streams =~ s/,\s*$split_str=/\n$split_str=/g;
+		$streams =~ s|$start(.*?)$end|$1}|;
+		$streams = from_json($streams)->{'args'};
 		my $m = 0;
-		foreach my $stream (split /\n/, $streams) {
-			mylog("[#%02u] processing: '%s...%s'", $m + 1,
-					substr($stream, 0, 10),
-					substr($stream, length($stream) - 10));
-			$streams[$m]->{'__order'} = "";
-			$stream =~ s/\?/&/;
-			# loop all key value pairs
-			foreach my $kvp (split /&/, $stream) {
-				if ($kvp =~ /([a-z_]+)=(.*)/) {
-					next if exists $streams[$m]->{$1};
-					$streams[$m]->{'__order'} .= "$1,";
-					$streams[$m]->{$1} = $2;
+		foreach my $fmts ('url_encoded_fmt_stream_map', 'adaptive_fmts') {
+			my $fmt = $streams->{$fmts};
+			# unicode and url decoding
+			$fmt = unidecode($fmt);
+			$fmt = urldecode($fmt);
+			mylog("found streams: '%s...%s'", substr($fmt, 0, 10),
+					substr($fmt, length($fmt) - 10));
+			# determination of first value
+			(my $split_str = $fmt) =~ s/^(.*?)\s*=.*$/$1/;
+			$split_str = quotemeta($split_str);
+			mylog("split string is: '%s'", $split_str);
+			# split by first value (sort of)
+			$fmt =~ s/,\s*$split_str=/\n$split_str=/g;
+			foreach my $stream (split /\n/, $fmt) {
+				mylog("[#%02u] processing: '%s...%s'", $m + 1,
+						substr($stream, 0, 10),
+						substr($stream, length($stream) - 10));
+				$streams[$m]->{'__order'} = "";
+				$stream =~ s/\?/&/;
+				# loop all key value pairs
+				foreach my $kvp (split /&/, $stream) {
+					if ($kvp =~ /([a-z_]+)=(.*)/) {
+						next if exists $streams[$m]->{$1};
+						$streams[$m]->{'__order'} .= "$1,";
+						$streams[$m]->{$1} = $2;
+					}
 				}
+				{
+					local $/ = ",";
+					chomp $streams[$m]->{'__order'};
+				}
+				mylog("[#%02u] key order: '%s'", $m + 1,
+						$streams[$m]->{'__order'});
+				++$m;
 			}
-			{
-				local $/ = ",";
-				chomp $streams[$m]->{'__order'};
-			}
-			mylog("[#%02u] key order: '%s'", $m + 1,
-					$streams[$m]->{'__order'});
-			++$m;
 		}
 	}
 	mylog("found %d streams", scalar @streams);
@@ -162,8 +167,11 @@ sub info_from_type($) {
 
 	if ($str =~ /^.*\/([0-9a-zA-Z_\-]+);\+codecs="(.+),\+?(.+)"/) {
 		return wantarray ? ($1, $2, $3) : "$1 $2/$3";
+	} elsif ($str =~ /^([a-z]+)\/([0-9a-zA-Z_\-]+);\+codecs="(.+)\+?"/) {
+		return wantarray ? ("$1.$2", $3, $1) : "$2 $3 ($1 only)";
 	} elsif ($str =~ /^.*\/([0-9a-zA-Z_\-]+)/) {
-		return $1;
+		(my $str = $1) =~ s/\W//g;
+		return $str;
 	}
 
 	return "???";
@@ -200,8 +208,18 @@ sub select_stream($;$) {
 		my $selections = "";
 		my $i = 1;
 		foreach my $stream (@{$stream_ref}) {
+			my @quality;
+			push @quality, $stream->{'quality'} if defined $stream->{'quality'};
+			push @quality, $stream->{'size'} if defined $stream->{'size'};
+			if (defined $stream->{'bitrate'}) {
+				if (0 < scalar @quality) {
+					push @quality, "(" . $stream->{'bitrate'} . ")";
+				} else {
+					push @quality, $stream->{'bitrate'};
+				}
+			}
 			$info = sprintf("itag % 2u: ", $stream->{'itag'}) . info_from_type($stream->{'type'});
-			$selections .= sprintf("%-3s %-7s ($info)\n", "$i:", $stream->{'quality'});
+			$selections .= sprintf("%-3s %-7s ($info)\n", "$i:", join " ", @quality);
 			++$i;
 		}
 		print $selections;
@@ -261,7 +279,6 @@ sub download_html($$) {
 sub download_video($$$) {
 	my ($downloader, $ref, $outfile) = @_;
 	my ($ext, undef, undef) = info_from_type($ref->{'type'});
-	$ext =~ s/\W//g;
 	$ext = "flv" if ($ext eq "xflv");
 
 	${$outfile} .= ".$ext";
@@ -279,7 +296,7 @@ sub init_hash($) {
 	my ($log) = @_;
 	(
 		'regexps'	=> {
-			'steams'	=> 'url_encoded_fmt_stream_map',
+			'streams'	=> qr/ytplayer\.config\s*?=\s*?/,
 			'title'		=> '<title>.*?</\s*title>'
 		},
 		'log'		=> $log,
@@ -418,7 +435,7 @@ sub main(@) {
 		extract_lines($outfile, %{$hash{'regexps'}}, %hash);
 		$hash{'title'} = get_title($hash{$hash{'regexps'}->{'title'}});
 		mylog("title extracted from title line is '%s'", $hash{'title'});
-		@{$hash{'streams'}} = get_streams($hash{$hash{'regexps'}->{'steams'}}, '":\s*"', qr/"[,}]/);
+		@{$hash{'streams'}} = get_streams($hash{$hash{'regexps'}->{'streams'}}, qr/.*?ytplayer\.config = /, qr/};.*$/);
 		if (0 == scalar @{$hash{'streams'}}) {
 			die "No valid streams found in file, exiting!"
 		}
