@@ -251,7 +251,8 @@ sub assemble_url($) {
 		}
 		push @values, "$key=$ref->{$key}"
 	}
-	my $url = $ref->{'url'} . "?" . (join '&', @values) . "&signature=" . $ref->{'sig'};
+	my $sig = exists $ref->{'signature'} ? $ref->{'signature'} : $ref->{'sig'};
+	my $url = $ref->{'url'} . "?" . (join '&', @values) . "&signature=" . $sig;
 	$url =~ s/,/%2C/g;
 	$url
 }
@@ -382,7 +383,7 @@ sub f($) {
 
 sub main(@) {
 	my @args = @_;
-	my $agent = exists $ENV{'AGENT'} ? $ENV{'AGENT'} : "User-Agent: Mozilla/5.0 (X11; Linux i686; rv:25.0) Gecko/20100101 Firefox/25.0";
+	my $agent = exists $ENV{'AGENT'} ? $ENV{'AGENT'} : "User-Agent: Mozilla/5.0 (X11; Linux i686; rv:28.0) Gecko/20100101 Firefox/28.0";
 	my ($operation, $outfile, $source);
 	$tempfile = \$outfile;
 	my $downloader = downloader({
