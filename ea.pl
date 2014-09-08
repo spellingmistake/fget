@@ -115,10 +115,14 @@ sub choose_playpath($$$) {
 	} while ($sel > $i or $sel < 1);
 	--$sel;
 	my $prefix = "";
-	if ($sorted[$sel]->{'videoFormat'} !~ /REACH/) {
+	my $vformat = $sorted[$sel]->{'videoFormat'};
+	if ($vformat eq 'RMP4') {
 		$prefix = "mp4:"
-	} else {
+	} elsif ($vformat eq 'HBBTV') {
 		${$http} = 1;
+	}
+	else {
+		die "unknown videoFormat $vformat";
 	}
 	${$playpath} = "\"$prefix$sorted[$sel]->{'url'}\"";
 	$sorted[$sel]->{'quality'}
