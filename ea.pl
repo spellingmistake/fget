@@ -8,7 +8,7 @@ use JSON qw/from_json/;
 use File::Temp qw/mktemp/;
 use Data::Dumper;
 
-use vars qw/@tempfiles $agent/;
+use vars qw/@tempfiles $agent $hbbtv $rmp4/;
 
 sub make_rtmp_command(\%) {
 	my $cmd = "";
@@ -116,9 +116,9 @@ sub choose_playpath($$$) {
 	--$sel;
 	my $prefix = "";
 	my $vformat = $sorted[$sel]->{'videoFormat'};
-	if ($vformat eq 'RMP4') {
+	if ($vformat eq $rmp4) {
 		$prefix = "mp4:"
-	} elsif ($vformat eq 'HBBTV') {
+	} elsif ($vformat eq $hbbtv) {
 		${$http} = 1;
 	}
 	else {
@@ -188,6 +188,8 @@ $config{'tcUrl'} = "$config{'rtmp'}";
 $config{'swfVfy'} = "$config{'swfUrl'}";
 
 $agent = "User-Agent: Mozilla/5.0 (X11; Linux i686; rv:32.0) Gecko/20100101 Firefox/32.0";
+$hbbtv = "HBBTV";
+$rmp4 = "RMP4";
 my $tempfile = new_tempfile($basename);
 curl($ARGV[0], $tempfile);
 my $json_url = extract_json_url($tempfile);
