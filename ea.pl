@@ -44,7 +44,7 @@ sub extract_json_url($) {
 	open $in, "<$_[0]" or die "error opening '$_[0]': $!";
 	while (<$in>) {
 		if ($_ =~ /ALL.json/ and $_ !~ /EXTRAIT/) {
-			if (($ret = $_) =~ s/.*"(http.*?)".*/$1/) {
+			if (($ret = $_) =~ s/.*["'](http.*?)["'].*/$1/) {
 				last;
 			}
 		}
