@@ -142,7 +142,6 @@ sub select_video($\$\$\$) {
 		$json = from_json(<$in>)->{'videoJsonPlayer'};
 		close $in;
 	}
-	print Dumper(\$json);
 	my $quality = choose_playpath($json->{'VSR'}, $playpath, $rhttp);
 	${$rflv} = sanitize_name($json->{'VTI'}, $json->{'VPI'}, $quality);
 }
