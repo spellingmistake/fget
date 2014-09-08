@@ -188,7 +188,7 @@ $config{'rtmp'} = "rtmp://artestras.fcod.llnwd.net/$config{'app'}";
 $config{'tcUrl'} = "$config{'rtmp'}";
 $config{'swfVfy'} = "$config{'swfUrl'}";
 
-$agent = "User-Agent: Mozilla/5.0 (X11; Linux i686; rv:25.0) Gecko/20100101 Firefox/25.0";
+$agent = "User-Agent: Mozilla/5.0 (X11; Linux i686; rv:32.0) Gecko/20100101 Firefox/32.0";
 my $tempfile = new_tempfile($basename);
 curl($ARGV[0], $tempfile);
 my $json_url = extract_json_url($tempfile);
