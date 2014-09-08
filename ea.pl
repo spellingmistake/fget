@@ -98,7 +98,7 @@ sub choose_playpath($$$) {
 	my ($vsr_hash, $playpath, $http) = @_;
 	my @sorted;
 	foreach (sort keys %{$vsr_hash}) {
-		next if $vsr_hash->{$_}->{'versionLibelle'} =~ /frz/i;
+		next if $vsr_hash->{$_}->{'versionLibelle'} =~ /frz/i or $vsr_hash->{$_}->{'mediaType'} =~ /hls/i;
 		push @sorted, $vsr_hash->{$_};
 	}
 	@sorted = sort(sort_func @sorted);
