@@ -133,16 +133,18 @@ sub choose_playpath($$$) {
 #         2 flv (title) ref for video output
 #         3 http true if http download is required
 sub select_video($\$\$\$) {
+	my ($tempfile, $playpath, $rflv, $rhttp) = @_;
 	my $json;
 	{
 		my $in;
-		open $in, "<$_[0]" or die "error opening '$_[0]': $!";
+		open $in, "<$tempfile" or die "error opening '$tempfile': $!";
 		local $/;
 		$json = from_json(<$in>)->{'videoJsonPlayer'};
 		close $in;
 	}
-	my $quality = choose_playpath($json->{'VSR'}, $_[1], $_[3]);
-	${$_[2]} = sanitize_name($json->{'VTI'}, $json->{'VPI'}, $quality);
+	print Dumper(\$json);
+	my $quality = choose_playpath($json->{'VSR'}, $playpath, $rhttp);
+	${$rflv} = sanitize_name($json->{'VTI'}, $json->{'VPI'}, $quality);
 }
 
 sub new_tempfile($) {
