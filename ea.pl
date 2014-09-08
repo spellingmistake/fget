@@ -197,7 +197,7 @@ curl($json_url, $tempfile);
 
 select_video($tempfile, $config{'playpath'}, $config{'flv'}, $config{'http'});
 if (defined $config{'http'}) {
-	print `curl -L -A '$agent' $config{'playpath'} -o $config{'flv'}`;
+	print `curl -C - -L -A '$agent' $config{'playpath'} -o $config{'flv'}`;
 } else {
 	delete $config{'http'};
 	my $cmd = make_rtmp_command(%config);
