@@ -79,9 +79,13 @@ sub sort_helper($){
 }
 
 sub sort_func($$) {
-	if ($_[0]->{'videoFormat'} =~ /REACH/) {
+	if ($_[0]->{'videoFormat'} =~ /$hbbtv/ and $_[1]->{'videoFormat'} =~ /$hbbtv/ or
+			$_[0]->{'videoFormat'} =~ /$rmp4/ and $_[1]->{'videoFormat'} =~ /$rmp4/) {
+		return $_[0]->{'width'} * $_[0]->{'height'} * $_[0]->{'bitrate'} -
+			$_[1]->{'width'} * $_[1]->{'height'} * $_[1]->{'bitrate'};
+	} elsif ($_[0]->{'videoFormat'} =~ /$hbbtv/ and $_[1]->{'videoFormat'} =~ /$rmp4/) {
 		return -1;
-	} elsif ($_[1]->{'videoFormat'} =~ /REACH/) {
+	} else {
 		return 1;
 	}
 	if ($_[0]->{'versionLibelle'} =~ /UT/ and $_[1]->{'versionLibelle'} =~ /UT/ or
