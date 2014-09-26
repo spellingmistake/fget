@@ -416,13 +416,13 @@ sub main(@) {
 		last if (0 == scalar @args);
 	}
 	my $args = get_args($stdin, @args);
+	%hash = init_hash($loghandle);
 
 	my $var = $args->();
 	while ($var or $var = $args->()) {
 		my @tmp = split /\s+/, $var;
 		my $v = shift @tmp;
 		$tempfile = \$outfile;
-		%hash = init_hash($loghandle);
 		$var = join " ", @tmp;
 		if ($v =~ /^([-+])q$/) {
 			$hash{'quiet'} = $1 eq "+" ? 0 : 1;
@@ -449,6 +449,7 @@ sub main(@) {
 		$source = $hash{'streams'}->[$hash{'id'}]->{'__url'};
 		$success = download_video($downloader, $hash{'streams'}->[$hash{'id'}], \$outfile);
 		$operation = $outfile = $source = undef;
+		%hash = init_hash($loghandle);
 	}
 }
 
