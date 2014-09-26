@@ -402,8 +402,8 @@ sub main(@) {
 
 	my $stdin = 0;
 	my $itag;
-	while ($args[0] =~ /-[pic]/) {
-		if ($args[0] eq "-p") {
+	while ($args[0] =~ /^-[pic]$/) {
+		if ($args[0] eq "-q") {
 			shift @args;
 			$itag = $hash{'preferred'}
 		} elsif ($args[0] eq "-i") {
