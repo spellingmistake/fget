@@ -27,6 +27,7 @@ sub make_rtmp_command(\%) {
 #         1 output file
 sub curl($$) {
 	my ($cmd, $stderr);
+	chomp $_[0];
 	$cmd = "curl -L -o '$_[1]' '$_[0]'";
 	run3($cmd, \undef, \undef, \$stderr);
 	if ($? != 0) {
